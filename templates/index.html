@@ -255,22 +255,38 @@
 
         // Lấy danh sách bài viết của dự án
         function loadPosts(projectId) {
+            if (!projectId) return;
+            
             fetch(`/get_posts/${projectId}`)
                 .then(response => response.json())
                 .then(posts => {
-                    const postList = document.getElementById('postList');
-                    postList.innerHTML = '';
-                    posts.forEach(post => {
-                        const div = document.createElement('div');
-                        div.className = 'card post-card';
-                        div.innerHTML = `
-                            <div class="card-body">
-                                <h5 class="card-title">${post.title}</h5>
-                                <p class="card-text">${post.content}</p>
-                                <small class="text-muted">Tạo lúc: ${post.created_at}</small>
-                            </div>
+                    const postsList = document.getElementById('postsList');
+                    postsList.innerHTML = '';
+                    
+                    posts.forEach((post, index) => {
+                        const row = document.createElement('tr');
+                        row.className = post.is_done ? 'done-row' : '';
+                        row.innerHTML = `
+                            <td><input type="checkbox" class="post-checkbox" value="${post.link}"></td>
+                            <td>${index + 1}</td>
+                            <td>${post.date}</td>
+                            <td>${post.platform}</td>
+                            <td>${document.getElementById('projectSelect').options[document.getElementById('projectSelect').selectedIndex].text}</td>
+                            <td>
+                                <a href="${post.link}" target="_blank">${post.link}</a>
+                                <button class="btn btn-sm btn-copy ms-2" onclick="copyToClipboard('${post.link}')">
+                                    Copy
+                                </button>
+                            </td>
+                            <td>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" 
+                                           ${post.is_done ? 'checked' : ''} 
+                                           onchange="toggleDone('${post.link}', this.checked)">
+                                </div>
+                            </td>
                         `;
-                        postList.appendChild(div);
+                        postsList.appendChild(row);
                     });
                 })
                 .catch(error => {
@@ -287,13 +303,14 @@
                 return;
             }
 
-            const title = document.getElementById('postTitle').value.trim();
-            const content = document.getElementById('postContent').value.trim();
-
-            if (!title || !content) {
-                alert('Vui lòng nhập đầy đủ thông tin bài viết');
+            const linkInput = document.getElementById('linkInput').value.trim();
+            if (!linkInput) {
+                alert('Vui lòng nhập link bài viết');
                 return;
             }
+
+            // Tách các link thành mảng
+            const links = linkInput.split('\n').map(link => link.trim()).filter(link => link);
 
             try {
                 const response = await fetch('/add_post', {
@@ -303,8 +320,7 @@
                     },
                     body: JSON.stringify({
                         project_id: parseInt(projectId),
-                        title: title,
-                        content: content
+                        links: links
                     })
                 });
 
@@ -314,8 +330,7 @@
                 }
 
                 // Xóa form
-                document.getElementById('postTitle').value = '';
-                document.getElementById('postContent').value = '';
+                document.getElementById('linkInput').value = '';
 
                 // Load lại danh sách bài viết
                 loadPosts(projectId);
@@ -396,6 +411,22 @@
             const selected = document.querySelectorAll('.post-checkbox');
             selected.forEach(checkbox => {
                 checkbox.checked = selectAll.checked;
+            });
+        }
+
+        // Copy link vào clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                btn.classList.add('copied');
+                btn.textContent = 'Đã copy!';
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.textContent = 'Copy';
+                }, 2000);
+            }).catch(err => {
+                console.error('Lỗi copy:', err);
+                alert('Không thể copy link');
             });
         }
 
