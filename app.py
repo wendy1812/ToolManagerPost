@@ -16,7 +16,6 @@ DATA_FILE = os.path.join(CURRENT_DIR, 'data.json')
 
 # Cấu hình logging đơn giản
 logging.basicConfig(
-    filename=os.path.join(CURRENT_DIR, 'logs/app.log'),
     level=logging.INFO,
     format='%(asctime)s %(levelname)s: %(message)s'
 )
