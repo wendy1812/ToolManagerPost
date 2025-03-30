@@ -35,30 +35,36 @@ def login_required(f):
     return decorated_function
 
 def load_data():
-    """Đọc dữ liệu từ file JSON"""
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                # Giới hạn số lượng dòng
-                for project in data['projects']:
-                    if len(project['posts']) > MAX_ROWS:
-                        project['posts'] = project['posts'][-MAX_ROWS:]
-                return data
-        return {'projects': []}
+                return data.get('projects', [])
+        return []
     except Exception as e:
-        logging.error(f'Lỗi đọc file dữ liệu: {str(e)}')
-        return {'projects': []}
+        logging.error(f"Lỗi khi đọc dữ liệu: {str(e)}")
+        return []
 
-def save_data(data):
-    """Lưu dữ liệu vào file JSON"""
+def save_data(projects):
     try:
-        # Đảm bảo thư mục logs tồn tại
+        # Tạo thư mục nếu chưa tồn tại
         os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        # Lưu dữ liệu vào file tạm thời trước
+        temp_file = f"{DATA_FILE}.tmp"
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump({'projects': projects}, f, ensure_ascii=False, indent=2)
+            
+        # Nếu lưu file tạm thành công, thay thế file gốc
+        if os.path.exists(temp_file):
+            if os.path.exists(DATA_FILE):
+                os.replace(temp_file, DATA_FILE)
+            else:
+                os.rename(temp_file, DATA_FILE)
     except Exception as e:
-        logging.error(f'Lỗi lưu file dữ liệu: {str(e)}')
+        logging.error(f"Lỗi khi lưu dữ liệu: {str(e)}")
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
         raise
 
 def get_platform_from_url(url):
@@ -110,7 +116,7 @@ def get_projects():
     """Lấy danh sách dự án"""
     try:
         data = load_data()
-        return jsonify(data['projects'])
+        return jsonify(data)
     except Exception as e:
         logging.error(f'Lỗi lấy danh sách dự án: {str(e)}')
         return jsonify({'error': str(e)}), 500
@@ -118,39 +124,26 @@ def get_projects():
 @app.route('/add_project', methods=['POST'])
 @login_required
 def add_project():
-    """Thêm dự án mới"""
     try:
         data = request.get_json()
-        if not data or 'name' not in data:
-            return jsonify({'error': 'Thiếu tên dự án'}), 400
-            
-        project_name = data['name'].strip()
-        if not project_name:
+        name = data.get('name', '').strip()
+        
+        if not name:
             return jsonify({'error': 'Tên dự án không được để trống'}), 400
             
-        # Đọc dữ liệu hiện tại
-        current_data = load_data()
-        
-        # Kiểm tra dự án đã tồn tại chưa
-        if any(p['name'] == project_name for p in current_data['projects']):
-            return jsonify({'error': 'Dự án đã tồn tại'}), 400
-            
-        # Thêm dự án mới
+        projects = load_data()
         new_project = {
-            'id': len(current_data['projects']) + 1,
-            'name': project_name,
+            'id': len(projects) + 1,
+            'name': name,
             'created_at': datetime.now().strftime('%d/%m'),
             'posts': []
         }
-        current_data['projects'].append(new_project)
-        
-        # Lưu dữ liệu
-        save_data(current_data)
-        
-        return jsonify(new_project)
+        projects.append(new_project)
+        save_data(projects)
+        return jsonify({'message': 'Dự án đã được thêm thành công'})
     except Exception as e:
-        logging.error(f'Lỗi thêm dự án: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Lỗi khi thêm dự án: {str(e)}")
+        return jsonify({'error': 'Không thể thêm dự án'}), 500
 
 @app.route('/get_posts/<int:project_id>')
 @login_required
@@ -158,7 +151,7 @@ def get_posts(project_id):
     """Lấy danh sách bài viết của dự án"""
     try:
         data = load_data()
-        project = next((p for p in data['projects'] if p['id'] == project_id), None)
+        project = next((p for p in data if p['id'] == project_id), None)
         if not project:
             return jsonify({'error': 'Không tìm thấy dự án'}), 404
         return jsonify(project['posts'])
@@ -169,87 +162,60 @@ def get_posts(project_id):
 @app.route('/add_post', methods=['POST'])
 @login_required
 def add_post():
-    """Thêm bài viết mới"""
     try:
         data = request.get_json()
-        if not data or 'project_id' not in data or 'links' not in data:
-            return jsonify({'error': 'Thiếu thông tin bài viết'}), 400
-            
-        # Đọc dữ liệu hiện tại
-        current_data = load_data()
+        project_id = data.get('project_id')
+        links = data.get('links', [])
         
-        # Tìm dự án
-        project = next((p for p in current_data['projects'] if p['id'] == data['project_id']), None)
+        if not project_id or not links:
+            return jsonify({'error': 'Thiếu thông tin'}), 400
+            
+        projects = load_data()
+        project = next((p for p in projects if p['id'] == project_id), None)
+        
         if not project:
             return jsonify({'error': 'Không tìm thấy dự án'}), 404
             
-        # Thêm các bài viết mới
-        new_posts = []
-        for link in data['links']:
-            if not link.strip():
-                continue
+        # Thêm các bài viết mới vào dự án
+        for link in links:
+            if link.strip():
+                platform = get_platform_from_url(link)
+                new_post = {
+                    'id': len(project['posts']) + 1,
+                    'link': link.strip(),
+                    'platform': platform,
+                    'date': datetime.now().strftime('%d/%m'),
+                    'is_done': False
+                }
+                project['posts'].append(new_post)
                 
-            new_post = {
-                'id': len(project['posts']) + 1,
-                'link': link.strip(),
-                'platform': get_platform_from_url(link),
-                'date': datetime.now().strftime('%d/%m'),
-                'is_done': False
-            }
-            project['posts'].append(new_post)
-            new_posts.append(new_post)
-            
-            # Giới hạn số lượng dòng
-            if len(project['posts']) > MAX_ROWS:
-                project['posts'] = project['posts'][-MAX_ROWS:]
-        
-        # Lưu dữ liệu
-        save_data(current_data)
-        
-        return jsonify({'success': True, 'posts': new_posts})
+        save_data(projects)
+        return jsonify({'message': 'Bài viết đã được thêm thành công'})
     except Exception as e:
-        logging.error(f'Lỗi thêm bài viết: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Lỗi khi thêm bài viết: {str(e)}")
+        return jsonify({'error': 'Không thể thêm bài viết'}), 500
 
 @app.route('/delete_project/<int:project_id>', methods=['DELETE'])
 @login_required
 def delete_project(project_id):
-    """Xóa dự án"""
     try:
-        # Đọc dữ liệu hiện tại
-        current_data = load_data()
-        
-        # Tìm dự án
-        project_index = next((i for i, p in enumerate(current_data['projects']) if p['id'] == project_id), None)
-        if project_index is None:
-            return jsonify({'error': 'Không tìm thấy dự án'}), 404
-            
-        # Xóa dự án
-        current_data['projects'].pop(project_index)
-        
-        # Lưu dữ liệu
-        save_data(current_data)
-        
-        return jsonify({'message': 'Đã xóa dự án thành công'})
+        projects = load_data()
+        projects = [p for p in projects if p['id'] != project_id]
+        save_data(projects)
+        return jsonify({'message': 'Dự án đã được xóa thành công'})
     except Exception as e:
-        logging.error(f'Lỗi xóa dự án: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Lỗi khi xóa dự án: {str(e)}")
+        return jsonify({'error': 'Không thể xóa dự án'}), 500
 
 @app.route('/delete_all', methods=['DELETE'])
 @login_required
 def delete_all():
-    """Xóa tất cả dữ liệu"""
     try:
-        # Xóa tất cả dữ liệu
-        current_data = {'projects': []}
-        
-        # Lưu dữ liệu
-        save_data(current_data)
-        
-        return jsonify({'message': 'Đã xóa tất cả dữ liệu thành công'})
+        save_data([])  # Lưu danh sách rỗng
+        return jsonify({'message': 'Tất cả dữ liệu đã được xóa thành công'})
     except Exception as e:
-        logging.error(f'Lỗi xóa tất cả dữ liệu: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Lỗi khi xóa tất cả dữ liệu: {str(e)}")
+        return jsonify({'error': 'Không thể xóa dữ liệu'}), 500
 
 @app.route('/toggle_done', methods=['POST'])
 @login_required
@@ -261,15 +227,15 @@ def toggle_done():
             return jsonify({'error': 'Thiếu thông tin'}), 400
             
         # Đọc dữ liệu hiện tại
-        current_data = load_data()
+        projects = load_data()
         
         # Tìm và cập nhật trạng thái bài viết
-        for project in current_data['projects']:
+        for project in projects:
             for post in project['posts']:
                 if post['link'] == data['link']:
                     post['is_done'] = data['is_done']
                     # Lưu dữ liệu
-                    save_data(current_data)
+                    save_data(projects)
                     return jsonify({'success': True})
                     
         return jsonify({'error': 'Không tìm thấy bài viết'}), 404
@@ -280,26 +246,23 @@ def toggle_done():
 @app.route('/delete_posts', methods=['POST'])
 @login_required
 def delete_posts():
-    """Xóa các bài viết đã chọn"""
     try:
         data = request.get_json()
-        if not data or 'links' not in data:
-            return jsonify({'error': 'Thiếu danh sách bài viết cần xóa'}), 400
-            
-        # Đọc dữ liệu hiện tại
-        current_data = load_data()
+        links_to_delete = set(data.get('links', []))
         
-        # Xóa các bài viết
-        for project in current_data['projects']:
-            project['posts'] = [post for post in project['posts'] if post['link'] not in data['links']]
+        if not links_to_delete:
+            return jsonify({'error': 'Không có bài viết nào để xóa'}), 400
             
-        # Lưu dữ liệu
-        save_data(current_data)
-        
+        projects = load_data()
+        for project in projects:
+            project['posts'] = [post for post in project['posts'] 
+                              if post['link'] not in links_to_delete]
+            
+        save_data(projects)
         return jsonify({'success': True})
     except Exception as e:
-        logging.error(f'Lỗi xóa bài viết: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Lỗi khi xóa bài viết: {str(e)}")
+        return jsonify({'error': 'Không thể xóa bài viết'}), 500
 
 @app.route('/sort_posts/<int:project_id>')
 @login_required
@@ -307,7 +270,7 @@ def sort_posts(project_id):
     """Sắp xếp bài viết theo nền tảng"""
     try:
         data = load_data()
-        project = next((p for p in data['projects'] if p['id'] == project_id), None)
+        project = next((p for p in data if p['id'] == project_id), None)
         if not project:
             return jsonify({'error': 'Không tìm thấy dự án'}), 404
             
@@ -325,25 +288,10 @@ def sort_posts(project_id):
 # Khởi tạo dữ liệu mẫu nếu chưa có
 if not os.path.exists(DATA_FILE):
     sample_data = {
-        'projects': [
-            {
-                'id': 1,
-                'name': 'Dự án mẫu',
-                'created_at': datetime.now().strftime('%d/%m'),
-                'posts': [
-                    {
-                        'id': 1,
-                        'link': 'https://facebook.com/sample',
-                        'platform': 'Facebook',
-                        'date': datetime.now().strftime('%d/%m'),
-                        'is_done': False
-                    }
-                ]
-            }
-        ]
+        'projects': []
     }
-    save_data(sample_data)
-    logging.info('Đã tạo dữ liệu mẫu')
+    save_data(sample_data['projects'])
+    logging.info('Đã tạo file dữ liệu mới')
 
 # Export app cho passenger_wsgi.py
 application = app
