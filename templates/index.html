@@ -85,7 +85,7 @@
                 <h5 class="mb-0">Danh Sách Bài Viết</h5>
                 <div>
                     <button class="btn btn-secondary me-2" onclick="sortByPlatform()">Sắp xếp</button>
-                    <button class="btn btn-danger me-2" onclick="deleteSelected()">Xóa</button>
+                    <button class="btn btn-danger me-2" onclick="deleteSelectedPosts()">Xóa</button>
                     <button class="btn btn-danger" onclick="deleteAll()">Xóa tất cả</button>
                 </div>
             </div>
@@ -185,7 +185,7 @@
         }
 
         // Xóa dự án
-        async function deleteProject() {
+        function deleteProject() {
             const projectId = document.getElementById('projectSelect').value;
             if (!projectId) {
                 alert('Vui lòng chọn dự án cần xóa');
@@ -196,61 +196,48 @@
                 return;
             }
 
-            try {
-                const response = await fetch(`/delete_project/${projectId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Lỗi khi xóa dự án');
+            fetch(`/delete_project/${projectId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    loadProjects();
+                    document.getElementById('projectSelect').value = '';
+                    document.getElementById('postsList').innerHTML = '';
+                } else {
+                    alert('Không thể xóa dự án');
                 }
-
-                // Xóa dự án khỏi select box
-                const projectSelect = document.getElementById('projectSelect');
-                const option = projectSelect.querySelector(`option[value="${projectId}"]`);
-                option.remove();
-
-                // Reset form
-                document.getElementById('addPostForm').style.display = 'none';
-                document.getElementById('postList').innerHTML = '';
-                document.getElementById('deleteProjectBtn').disabled = true;
-
-                // Chọn dự án đầu tiên nếu còn
-                if (projectSelect.options.length > 1) {
-                    projectSelect.value = projectSelect.options[1].value;
-                    selectProject(projectSelect.value);
-                }
-            } catch (error) {
-                alert(error.message);
-            }
+            })
+            .catch(error => {
+                console.error('Lỗi:', error);
+                alert('Không thể xóa dự án');
+            });
         }
 
         // Xóa tất cả dữ liệu
-        async function deleteAll() {
+        function deleteAll() {
             if (!confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu? Hành động này không thể hoàn tác.')) {
                 return;
             }
 
-            try {
-                const response = await fetch('/delete_all', {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Lỗi khi xóa tất cả dữ liệu');
+            fetch('/delete_all', {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    loadProjects();
+                    document.getElementById('projectSelect').value = '';
+                    document.getElementById('postsList').innerHTML = '';
+                } else {
+                    alert('Không thể xóa dữ liệu');
                 }
-
-                // Reset giao diện
-                const projectSelect = document.getElementById('projectSelect');
-                projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
-                document.getElementById('addPostForm').style.display = 'none';
-                document.getElementById('postList').innerHTML = '';
-                document.getElementById('deleteProjectBtn').disabled = true;
-            } catch (error) {
-                alert(error.message);
-            }
+            })
+            .catch(error => {
+                console.error('Lỗi:', error);
+                alert('Không thể xóa dữ liệu');
+            });
         }
 
         // Lấy danh sách bài viết của dự án
@@ -346,14 +333,17 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ link, is_done: isDone })
+                body: JSON.stringify({
+                    link: link,
+                    is_done: isDone
+                })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    loadPosts();
+                    loadPosts(document.getElementById('projectSelect').value);
                 } else {
-                    alert(data.error || 'Không thể cập nhật trạng thái');
+                    alert('Không thể cập nhật trạng thái');
                 }
             })
             .catch(error => {
@@ -363,32 +353,31 @@
         }
 
         // Xóa bài viết đã chọn
-        function deleteSelected() {
+        function deleteSelectedPosts() {
             const checkboxes = document.querySelectorAll('.post-checkbox:checked');
-            if (!checkboxes.length) {
-                alert('Vui lòng chọn ít nhất một bài viết để xóa');
-                return;
-            }
-
-            if (!confirm('Bạn có chắc chắn muốn xóa các bài viết đã chọn?')) {
+            if (checkboxes.length === 0) {
+                alert('Vui lòng chọn bài viết cần xóa');
                 return;
             }
 
             const links = Array.from(checkboxes).map(cb => cb.value);
+            if (!confirm('Bạn có chắc chắn muốn xóa các bài viết đã chọn?')) {
+                return;
+            }
 
             fetch('/delete_posts', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ links })
+                body: JSON.stringify({ links: links })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    loadPosts();
+                    loadPosts(document.getElementById('projectSelect').value);
                 } else {
-                    alert(data.error || 'Không thể xóa bài viết');
+                    alert('Không thể xóa bài viết');
                 }
             })
             .catch(error => {
@@ -416,22 +405,13 @@
 
         // Copy link vào clipboard
         function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = event.target;
-                btn.classList.add('copied');
-                btn.textContent = 'Đã copy!';
-                setTimeout(() => {
-                    btn.classList.remove('copied');
-                    btn.textContent = 'Copy';
-                }, 2000);
-            }).catch(err => {
-                console.error('Lỗi copy:', err);
-                alert('Không thể copy link');
-            });
+            navigator.clipboard.writeText(text);
         }
 
         // Load dữ liệu ban đầu
-        loadProjects();
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProjects();
+        });
     </script>
 </body>
 </html> 

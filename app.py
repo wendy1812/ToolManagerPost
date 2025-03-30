@@ -1,12 +1,14 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from datetime import datetime
 import os
 import json
 import logging
 import re
+from functools import wraps
 
 # Khởi tạo Flask app
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-here'  # Thay đổi key này thành một giá trị ngẫu nhiên phức tạp
 
 # Đảm bảo đường dẫn tuyệt đối
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -18,12 +20,31 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s: %(message)s'
 )
 
+# Giới hạn số lượng dòng tối đa
+MAX_ROWS = 50
+
+# Mật khẩu đơn giản
+PASSWORD = '123456'  # Thay đổi mật khẩu này
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 def load_data():
     """Đọc dữ liệu từ file JSON"""
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Giới hạn số lượng dòng
+                for project in data['projects']:
+                    if len(project['posts']) > MAX_ROWS:
+                        project['posts'] = project['posts'][-MAX_ROWS:]
+                return data
         return {'projects': []}
     except Exception as e:
         logging.error(f'Lỗi đọc file dữ liệu: {str(e)}')
@@ -51,15 +72,36 @@ def get_platform_from_url(url):
         return 'TikTok'
     elif 'youtube.com' in url:
         return 'YouTube'
+    elif 'x.com' in url or 'twitter.com' in url:
+        return 'X'
+    elif 'linkedin.com' in url:
+        return 'LinkedIn'
     else:
         return 'Khác'
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        if password == PASSWORD:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        return render_template('login.html', error='Mật khẩu không đúng')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
     """Trang chủ"""
     return render_template('index.html')
 
 @app.route('/get_projects')
+@login_required
 def get_projects():
     """Lấy danh sách dự án"""
     try:
@@ -70,6 +112,7 @@ def get_projects():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/add_project', methods=['POST'])
+@login_required
 def add_project():
     """Thêm dự án mới"""
     try:
@@ -92,7 +135,7 @@ def add_project():
         new_project = {
             'id': len(current_data['projects']) + 1,
             'name': project_name,
-            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'created_at': datetime.now().strftime('%d/%m'),
             'posts': []
         }
         current_data['projects'].append(new_project)
@@ -106,6 +149,7 @@ def add_project():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/get_posts/<int:project_id>')
+@login_required
 def get_posts(project_id):
     """Lấy danh sách bài viết của dự án"""
     try:
@@ -119,6 +163,7 @@ def get_posts(project_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/add_post', methods=['POST'])
+@login_required
 def add_post():
     """Thêm bài viết mới"""
     try:
@@ -144,11 +189,15 @@ def add_post():
                 'id': len(project['posts']) + 1,
                 'link': link.strip(),
                 'platform': get_platform_from_url(link),
-                'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'date': datetime.now().strftime('%d/%m'),
                 'is_done': False
             }
             project['posts'].append(new_post)
             new_posts.append(new_post)
+            
+            # Giới hạn số lượng dòng
+            if len(project['posts']) > MAX_ROWS:
+                project['posts'] = project['posts'][-MAX_ROWS:]
         
         # Lưu dữ liệu
         save_data(current_data)
@@ -159,6 +208,7 @@ def add_post():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_project/<int:project_id>', methods=['DELETE'])
+@login_required
 def delete_project(project_id):
     """Xóa dự án"""
     try:
@@ -182,6 +232,7 @@ def delete_project(project_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_all', methods=['DELETE'])
+@login_required
 def delete_all():
     """Xóa tất cả dữ liệu"""
     try:
@@ -197,6 +248,7 @@ def delete_all():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/toggle_done', methods=['POST'])
+@login_required
 def toggle_done():
     """Đánh dấu bài viết đã hoàn thành"""
     try:
@@ -222,6 +274,7 @@ def toggle_done():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_posts', methods=['POST'])
+@login_required
 def delete_posts():
     """Xóa các bài viết đã chọn"""
     try:
@@ -251,13 +304,13 @@ if not os.path.exists(DATA_FILE):
             {
                 'id': 1,
                 'name': 'Dự án mẫu',
-                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'created_at': datetime.now().strftime('%d/%m'),
                 'posts': [
                     {
                         'id': 1,
                         'link': 'https://facebook.com/sample',
                         'platform': 'Facebook',
-                        'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'date': datetime.now().strftime('%d/%m'),
                         'is_done': False
                     }
                 ]
