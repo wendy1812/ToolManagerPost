@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 import json
 import logging
@@ -25,6 +25,13 @@ MAX_ROWS = 50
 
 # Mật khẩu đơn giản
 PASSWORD = '9998'  # Mật khẩu cố định
+
+# Cấu hình múi giờ GMT+7
+TZ_OFFSET = timedelta(hours=7)
+
+def get_current_time():
+    """Lấy thời gian hiện tại theo múi giờ GMT+7"""
+    return datetime.now(timezone.utc) + TZ_OFFSET
 
 def login_required(f):
     @wraps(f)
@@ -149,7 +156,7 @@ def add_project():
         new_project = {
             'id': len(projects) + 1,
             'name': name,
-            'created_at': datetime.now().strftime('%d/%m'),
+            'created_at': get_current_time().strftime('%d/%m'),
             'posts': []
         }
         projects.append(new_project)
@@ -185,7 +192,7 @@ def add_post():
             post = {
                 'link': link,
                 'platform': platform,
-                'date': datetime.now().strftime('%d/%m %H:%M'),
+                'date': get_current_time().strftime('%d/%m %H:%M'),
                 'is_done': False
             }
             latest_project['posts'].append(post)
@@ -262,23 +269,6 @@ def delete_posts():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': 'Không thể xóa bài viết'}), 500
-
-@app.route('/sort_posts')
-def sort_posts():
-    try:
-        projects = load_data()
-        all_posts = []
-        for project in projects:
-            for post in project['posts']:
-                post['project_name'] = project['name']
-                all_posts.append(post)
-        
-        # Sắp xếp theo nền tảng
-        all_posts.sort(key=lambda x: x['platform'])
-        
-        return jsonify(all_posts)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 # Khởi tạo dữ liệu mẫu nếu chưa có
 if not os.path.exists(DATA_FILE):

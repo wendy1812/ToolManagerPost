@@ -416,19 +416,16 @@
 
         // Sắp xếp bài viết theo nền tảng
         function sortByPlatform() {
-            const projectId = document.getElementById('projectSelect').value;
-            if (!projectId) {
-                alert('Vui lòng chọn dự án');
-                return;
-            }
-
-            fetch(`/sort_posts/${projectId}`)
+            fetch('/get_posts')
                 .then(response => response.json())
                 .then(posts => {
+                    // Sắp xếp theo SNS
+                    posts.sort((a, b) => a.platform.localeCompare(b.platform));
+                    
                     const postsList = document.getElementById('postList');
                     postsList.innerHTML = '';
                     
-                    posts.forEach((post, index) => {
+                    posts.forEach(post => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
                             <td>
@@ -466,10 +463,11 @@
             });
         }
 
-        // Copy link vào clipboard
+        // Copy link vào clipboard và mở trong tab mới
         function copyToClipboard(event, text) {
             event.preventDefault();
             navigator.clipboard.writeText(text);
+            window.open(text, '_blank');
         }
 
         // Load dữ liệu ban đầu
