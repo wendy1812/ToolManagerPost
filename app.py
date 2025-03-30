@@ -62,7 +62,6 @@ def save_data(projects):
             else:
                 os.rename(temp_file, DATA_FILE)
     except Exception as e:
-        logging.error(f"Lỗi khi lưu dữ liệu: {str(e)}")
         if os.path.exists(temp_file):
             os.remove(temp_file)
         raise
@@ -121,6 +120,21 @@ def get_projects():
         logging.error(f'Lỗi lấy danh sách dự án: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/get_posts')
+@login_required
+def get_posts():
+    """Lấy tất cả bài viết từ tất cả dự án"""
+    try:
+        data = load_data()
+        all_posts = []
+        for project in data:
+            for post in project['posts']:
+                post['project_name'] = project['name']  # Thêm tên dự án vào mỗi bài viết
+                all_posts.append(post)
+        return jsonify(all_posts)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/add_project', methods=['POST'])
 @login_required
 def add_project():
@@ -145,23 +159,10 @@ def add_project():
         logging.error(f"Lỗi khi thêm dự án: {str(e)}")
         return jsonify({'error': 'Không thể thêm dự án'}), 500
 
-@app.route('/get_posts/<int:project_id>')
-@login_required
-def get_posts(project_id):
-    """Lấy danh sách bài viết của dự án"""
-    try:
-        data = load_data()
-        project = next((p for p in data if p['id'] == project_id), None)
-        if not project:
-            return jsonify({'error': 'Không tìm thấy dự án'}), 404
-        return jsonify(project['posts'])
-    except Exception as e:
-        logging.error(f'Lỗi lấy danh sách bài viết: {str(e)}')
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/add_post', methods=['POST'])
 @login_required
 def add_post():
+    """Thêm bài viết mới"""
     try:
         data = request.get_json()
         project_id = data.get('project_id')
@@ -192,7 +193,6 @@ def add_post():
         save_data(projects)
         return jsonify({'message': 'Bài viết đã được thêm thành công'})
     except Exception as e:
-        logging.error(f"Lỗi khi thêm bài viết: {str(e)}")
         return jsonify({'error': 'Không thể thêm bài viết'}), 500
 
 @app.route('/delete_project/<int:project_id>', methods=['DELETE'])
@@ -226,7 +226,6 @@ def toggle_done():
         if not data or 'link' not in data or 'is_done' not in data:
             return jsonify({'error': 'Thiếu thông tin'}), 400
             
-        # Đọc dữ liệu hiện tại
         projects = load_data()
         
         # Tìm và cập nhật trạng thái bài viết
@@ -234,18 +233,17 @@ def toggle_done():
             for post in project['posts']:
                 if post['link'] == data['link']:
                     post['is_done'] = data['is_done']
-                    # Lưu dữ liệu
                     save_data(projects)
                     return jsonify({'success': True})
                     
         return jsonify({'error': 'Không tìm thấy bài viết'}), 404
     except Exception as e:
-        logging.error(f'Lỗi cập nhật trạng thái: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_posts', methods=['POST'])
 @login_required
 def delete_posts():
+    """Xóa các bài viết đã chọn"""
     try:
         data = request.get_json()
         links_to_delete = set(data.get('links', []))
@@ -261,28 +259,25 @@ def delete_posts():
         save_data(projects)
         return jsonify({'success': True})
     except Exception as e:
-        logging.error(f"Lỗi khi xóa bài viết: {str(e)}")
         return jsonify({'error': 'Không thể xóa bài viết'}), 500
 
-@app.route('/sort_posts/<int:project_id>')
+@app.route('/sort_posts')
 @login_required
-def sort_posts(project_id):
-    """Sắp xếp bài viết theo nền tảng"""
+def sort_posts():
+    """Sắp xếp tất cả bài viết theo nền tảng"""
     try:
         data = load_data()
-        project = next((p for p in data if p['id'] == project_id), None)
-        if not project:
-            return jsonify({'error': 'Không tìm thấy dự án'}), 404
-            
+        all_posts = []
+        for project in data:
+            for post in project['posts']:
+                post['project_name'] = project['name']
+                all_posts.append(post)
+        
         # Sắp xếp bài viết theo nền tảng
-        project['posts'].sort(key=lambda x: x['platform'])
+        all_posts.sort(key=lambda x: x['platform'])
         
-        # Lưu dữ liệu
-        save_data(data)
-        
-        return jsonify(project['posts'])
+        return jsonify(all_posts)
     except Exception as e:
-        logging.error(f'Lỗi sắp xếp bài viết: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 # Khởi tạo dữ liệu mẫu nếu chưa có

@@ -75,19 +75,8 @@
     <div class="container mt-2">
         <!-- Quản lý dự án -->
         <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header">
                 <h5 class="mb-0">Quản lý dự án</h5>
-                <div class="btn-group">
-                    <button class="btn btn-danger" onclick="deleteAll()">
-                        <i class="fas fa-trash"></i> Xóa tất cả dữ liệu
-                    </button>
-                    <button class="btn btn-warning" onclick="deleteSelectedPosts()">
-                        <i class="fas fa-trash"></i> Xóa bài viết đã chọn
-                    </button>
-                    <button class="btn btn-primary" onclick="sortByPlatform()">
-                        <i class="fas fa-sort"></i> Sắp xếp theo nền tảng
-                    </button>
-                </div>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -106,12 +95,23 @@
 
         <!-- Thêm bài viết mới -->
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Danh sách bài viết</h5>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="sortByPlatform()">
+                        <i class="fas fa-sort"></i> Sort
+                    </button>
+                    <button class="btn btn-warning" onclick="deleteSelectedPosts()">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteAll()">
+                        <i class="fas fa-trash"></i> Delete All
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" id="postLink" placeholder="Nhập link bài viết">
+                    <textarea class="form-control" id="postLink" rows="3" placeholder="Nhập link bài viết (mỗi link một dòng)"></textarea>
                     <button class="btn btn-primary" onclick="addPost()">Thêm bài viết</button>
                 </div>
                 <div class="table-responsive">
@@ -121,9 +121,10 @@
                                 <th style="width: 40px">
                                     <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
                                 </th>
-                                <th style="width: 40px">Hoàn thành</th>
-                                <th style="width: 100px">Ngày</th>
-                                <th style="width: 120px">Nền tảng</th>
+                                <th style="width: 40px">Done</th>
+                                <th style="width: 100px">Date</th>
+                                <th style="width: 120px">SNS</th>
+                                <th style="width: 150px">Dự án</th>
                                 <th class="link-column">Link</th>
                             </tr>
                         </thead>
@@ -281,41 +282,39 @@
         // Load danh sách bài viết
         async function loadPosts() {
             try {
-                const projectId = document.getElementById('projectSelect').value;
-                if (!projectId) {
-                    document.getElementById('postList').innerHTML = '';
-                    return;
-                }
-
-                const response = await fetch(`/get_posts/${projectId}`);
+                const response = await fetch('/get_projects');
                 if (!response.ok) {
                     throw new Error('Không thể tải danh sách bài viết');
                 }
-                const posts = await response.json();
+                const projects = await response.json();
                 
                 const tbody = document.getElementById('postList');
                 tbody.innerHTML = '';
                 
-                posts.forEach(post => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>
-                            <input type="checkbox" class="post-checkbox" value="${post.link}">
-                        </td>
-                        <td>
-                            <input type="checkbox" class="form-check-input" 
-                                   ${post.is_done ? 'checked' : ''} 
-                                   onchange="toggleDone('${post.link}', this.checked)">
-                        </td>
-                        <td>${post.date}</td>
-                        <td>${post.platform}</td>
-                        <td class="link-column">
-                            <a href="${post.link}" target="_blank" onclick="copyToClipboard(event, '${post.link}')">
-                                ${post.link}
-                            </a>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+                // Lấy tất cả bài viết từ tất cả dự án
+                projects.forEach(project => {
+                    project.posts.forEach(post => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>
+                                <input type="checkbox" class="post-checkbox" value="${post.link}">
+                            </td>
+                            <td>
+                                <input type="checkbox" class="form-check-input" 
+                                       ${post.is_done ? 'checked' : ''} 
+                                       onchange="toggleDone('${post.link}', this.checked)">
+                            </td>
+                            <td>${post.date}</td>
+                            <td>${post.platform}</td>
+                            <td>${project.name}</td>
+                            <td class="link-column">
+                                <a href="${post.link}" target="_blank" onclick="copyToClipboard(event, '${post.link}')">
+                                    ${post.link}
+                                </a>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
                 });
             } catch (error) {
                 console.error('Lỗi:', error);
@@ -325,19 +324,19 @@
 
         // Thêm bài viết mới
         async function addPost() {
-            const projectId = document.getElementById('projectSelect').value;
-            if (!projectId) {
-                alert('Vui lòng chọn dự án');
-                return;
-            }
-
             const linkInput = document.getElementById('postLink').value.trim();
             if (!linkInput) {
                 alert('Vui lòng nhập link bài viết');
                 return;
             }
 
-            // Tách các link thành mảng
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                alert('Vui lòng chọn dự án');
+                return;
+            }
+
+            // Tách các link từ textarea (mỗi link một dòng)
             const links = linkInput.split('\n').map(link => link.trim()).filter(link => link);
 
             try {
@@ -347,7 +346,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        project_id: parseInt(projectId),
+                        project_id: projectId,
                         links: links
                     })
                 });
@@ -361,7 +360,7 @@
                 document.getElementById('postLink').value = '';
 
                 // Load lại danh sách bài viết
-                loadPosts(projectId);
+                loadPosts();
             } catch (error) {
                 alert(error.message);
             }
@@ -450,6 +449,7 @@
                             </td>
                             <td>${post.date}</td>
                             <td>${post.platform}</td>
+                            <td>${project.name}</td>
                             <td class="link-column">
                                 <a href="${post.link}" target="_blank" onclick="copyToClipboard(event, '${post.link}')">
                                     ${post.link}
