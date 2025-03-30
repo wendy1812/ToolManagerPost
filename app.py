@@ -160,40 +160,41 @@ def add_project():
         return jsonify({'error': 'Không thể thêm dự án'}), 500
 
 @app.route('/add_post', methods=['POST'])
-@login_required
 def add_post():
-    """Thêm bài viết mới"""
+    data = request.get_json()
+    links = data.get('links', [])
+    
+    if not links:
+        return jsonify({'error': 'Vui lòng nhập link bài viết'}), 400
+
     try:
-        data = request.get_json()
-        project_id = data.get('project_id')
-        links = data.get('links', [])
-        
-        if not project_id or not links:
-            return jsonify({'error': 'Thiếu thông tin'}), 400
-            
+        # Lấy dữ liệu từ file
         projects = load_data()
-        project = next((p for p in projects if p['id'] == project_id), None)
-        
-        if not project:
-            return jsonify({'error': 'Không tìm thấy dự án'}), 404
+        if not projects:
+            return jsonify({'error': 'Chưa có dự án nào'}), 400
             
-        # Thêm các bài viết mới vào dự án
+        latest_project = projects[0]  # Dự án đầu tiên là mới nhất
+        
+        # Thêm các bài viết vào dự án
         for link in links:
-            if link.strip():
-                platform = get_platform_from_url(link)
-                new_post = {
-                    'id': len(project['posts']) + 1,
-                    'link': link.strip(),
-                    'platform': platform,
-                    'date': datetime.now().strftime('%d/%m'),
-                    'is_done': False
-                }
-                project['posts'].append(new_post)
+            platform = get_platform_from_url(link)
+            if not platform:
+                continue
                 
+            post = {
+                'link': link,
+                'platform': platform,
+                'date': datetime.now().strftime('%d/%m'),
+                'is_done': False
+            }
+            latest_project['posts'].append(post)
+            
+        # Lưu dữ liệu
         save_data(projects)
-        return jsonify({'message': 'Bài viết đã được thêm thành công'})
+        return jsonify({'message': 'Thêm bài viết thành công'})
+        
     except Exception as e:
-        return jsonify({'error': 'Không thể thêm bài viết'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_project/<int:project_id>', methods=['DELETE'])
 @login_required

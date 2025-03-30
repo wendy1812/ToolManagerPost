@@ -112,7 +112,7 @@
             <div class="card-body">
                 <div class="input-group mb-3">
                     <textarea class="form-control" id="postLink" rows="3" placeholder="Nhập link bài viết (mỗi link một dòng)"></textarea>
-                    <button class="btn btn-primary" onclick="addPost()">Thêm bài viết</button>
+                    <button class="btn btn-primary" onclick="addPost()">Add Link</button>
                 </div>
                 <div class="table-responsive">
                     <table class="table">
@@ -211,13 +211,15 @@
                         // Chọn dự án mới nhất
                         if (projects.length > 0) {
                             projectSelect.value = projects[projects.length - 1].id;
-                            loadPosts(projects[projects.length - 1].id);
                         }
                     })
                     .catch(error => {
                         console.error('Lỗi:', error);
                         alert('Không thể tải danh sách dự án');
                     });
+
+                // Load lại danh sách bài viết (hiển thị tất cả)
+                loadPosts();
             } catch (error) {
                 alert(error.message);
             }
@@ -282,39 +284,36 @@
         // Load danh sách bài viết
         async function loadPosts() {
             try {
-                const response = await fetch('/get_projects');
+                const response = await fetch('/get_posts');
                 if (!response.ok) {
                     throw new Error('Không thể tải danh sách bài viết');
                 }
-                const projects = await response.json();
+                const posts = await response.json();
                 
                 const tbody = document.getElementById('postList');
                 tbody.innerHTML = '';
                 
-                // Lấy tất cả bài viết từ tất cả dự án
-                projects.forEach(project => {
-                    project.posts.forEach(post => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>
-                                <input type="checkbox" class="post-checkbox" value="${post.link}">
-                            </td>
-                            <td>
-                                <input type="checkbox" class="form-check-input" 
-                                       ${post.is_done ? 'checked' : ''} 
-                                       onchange="toggleDone('${post.link}', this.checked)">
-                            </td>
-                            <td>${post.date}</td>
-                            <td>${post.platform}</td>
-                            <td>${project.name}</td>
-                            <td class="link-column">
-                                <a href="${post.link}" target="_blank" onclick="copyToClipboard(event, '${post.link}')">
-                                    ${post.link}
-                                </a>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                posts.forEach(post => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <input type="checkbox" class="post-checkbox" value="${post.link}">
+                        </td>
+                        <td>
+                            <input type="checkbox" class="form-check-input" 
+                                   ${post.is_done ? 'checked' : ''} 
+                                   onchange="toggleDone('${post.link}', this.checked)">
+                        </td>
+                        <td>${post.date}</td>
+                        <td>${post.platform}</td>
+                        <td>${post.project_name}</td>
+                        <td class="link-column">
+                            <a href="${post.link}" target="_blank" onclick="copyToClipboard(event, '${post.link}')">
+                                ${post.link}
+                            </a>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
                 });
             } catch (error) {
                 console.error('Lỗi:', error);
@@ -330,12 +329,6 @@
                 return;
             }
 
-            const projectId = document.getElementById('projectSelect').value;
-            if (!projectId) {
-                alert('Vui lòng chọn dự án');
-                return;
-            }
-
             // Tách các link từ textarea (mỗi link một dòng)
             const links = linkInput.split('\n').map(link => link.trim()).filter(link => link);
 
@@ -346,7 +339,6 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        project_id: projectId,
                         links: links
                     })
                 });
@@ -449,7 +441,7 @@
                             </td>
                             <td>${post.date}</td>
                             <td>${post.platform}</td>
-                            <td>${project.name}</td>
+                            <td>${post.project_name}</td>
                             <td class="link-column">
                                 <a href="${post.link}" target="_blank" onclick="copyToClipboard(event, '${post.link}')">
                                     ${post.link}
@@ -483,6 +475,7 @@
         // Load dữ liệu ban đầu
         document.addEventListener('DOMContentLoaded', function() {
             loadProjects();
+            loadPosts();
         });
     </script>
 </body>
