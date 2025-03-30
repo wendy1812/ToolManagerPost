@@ -3,108 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý bài viết</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Quản lý Bài viết</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .project-card {
-            cursor: pointer;
-            transition: all 0.3s;
+        .done-row {
+            background-color: #ffcccc;
         }
-        .project-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        .table th {
+            white-space: nowrap;
         }
-        .post-card {
-            margin-bottom: 1rem;
+        .table td {
+            vertical-align: middle;
         }
-        .project-actions {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 1rem;
+        .btn-copy {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
         }
-        .danger-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 1rem;
-            justify-content: flex-end;
+        .btn-copy.copied {
+            background-color: #198754;
+            color: white;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            .table-responsive {
+                font-size: 0.9rem;
+            }
+            .btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+            }
+            .card-body {
+                padding: 0.75rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="mb-4">Quản lý bài viết</h1>
-        
-        <!-- Form thêm dự án -->
-        <div class="card mb-4">
+    <div class="container mt-3">
+        <!-- Quản lý dự án -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Quản lý Dự án</h5>
+            </div>
             <div class="card-body">
-                <h5 class="card-title">Thêm dự án mới</h5>
-                <div class="input-group">
-                    <input type="text" id="projectName" class="form-control" placeholder="Nhập tên dự án">
-                    <button class="btn btn-primary" onclick="addProject()">Thêm dự án</button>
+                <div class="row g-2">
+                    <div class="col-md-8">
+                        <input type="text" id="projectName" class="form-control" placeholder="Tên dự án mới">
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary w-100" onclick="addProject()">Thêm dự án</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Danh sách dự án và bài viết -->
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <h5>Chọn dự án</h5>
-                <div class="project-actions">
-                    <select id="projectSelect" class="form-select" onchange="selectProject(this.value)">
-                        <option value="">Chọn dự án...</option>
+        <!-- Thêm bài viết mới -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Thêm Bài Viết Mới</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Link bài viết:</label>
+                    <textarea id="linkInput" class="form-control" rows="3" placeholder="Nhập link bài viết"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Dự án:</label>
+                    <select id="projectSelect" class="form-select" onchange="loadPosts()">
+                        <option value="">Chọn dự án</option>
                     </select>
-                    <button class="btn btn-danger" onclick="deleteProject()" id="deleteProjectBtn" disabled>Xóa dự án</button>
                 </div>
-            </div>
-            <div class="col-md-8">
-                <h5>Danh sách bài viết</h5>
-                <div id="postList">
-                    <!-- Bài viết sẽ được thêm vào đây -->
-                </div>
+                <button class="btn btn-primary w-100" onclick="addPost()">Thêm bài viết</button>
             </div>
         </div>
 
-        <!-- Form thêm bài viết -->
-        <div class="card" id="addPostForm" style="display: none;">
-            <div class="card-body">
-                <h5 class="card-title">Thêm bài viết mới</h5>
-                <div class="mb-3">
-                    <input type="text" id="postTitle" class="form-control" placeholder="Tiêu đề bài viết">
+        <!-- Danh sách bài viết -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Danh Sách Bài Viết</h5>
+                <div>
+                    <button class="btn btn-secondary me-2" onclick="sortByPlatform()">Sắp xếp</button>
+                    <button class="btn btn-danger me-2" onclick="deleteSelected()">Xóa</button>
+                    <button class="btn btn-danger" onclick="deleteAll()">Xóa tất cả</button>
                 </div>
-                <div class="mb-3">
-                    <textarea id="postContent" class="form-control" rows="5" placeholder="Nội dung bài viết"></textarea>
-                </div>
-                <button class="btn btn-primary" onclick="addPost()">Thêm bài viết</button>
             </div>
-        </div>
-
-        <!-- Nút xóa tất cả -->
-        <div class="danger-actions">
-            <button class="btn btn-danger" onclick="deleteAll()">Xóa tất cả dữ liệu</button>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                                <th>STT</th>
+                                <th>Ngày</th>
+                                <th>Nền tảng</th>
+                                <th>Dự án</th>
+                                <th>Link</th>
+                                <th>Hoàn thành</th>
+                            </tr>
+                        </thead>
+                        <tbody id="postsList">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Lấy danh sách dự án
+        let posts = [];
+        let selectedPosts = new Set();
+
+        // Load danh sách dự án
         function loadProjects() {
-            fetch('/quanlybaiviet/get_projects')
+            fetch('/get_projects')
                 .then(response => response.json())
                 .then(projects => {
-                    const projectSelect = document.getElementById('projectSelect');
-                    projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
+                    const select = document.getElementById('projectSelect');
+                    select.innerHTML = '<option value="">Chọn dự án</option>';
                     projects.forEach(project => {
-                        const option = document.createElement('option');
-                        option.value = project.id;
-                        option.textContent = project.name;
-                        projectSelect.appendChild(option);
+                        select.innerHTML += `<option value="${project}">${project}</option>`;
                     });
-
-                    // Tự động chọn dự án mới nhất
-                    if (projects.length > 0) {
-                        const latestProject = projects[projects.length - 1];
-                        projectSelect.value = latestProject.id;
-                        selectProject(latestProject.id);
-                    }
                 })
                 .catch(error => {
                     console.error('Lỗi:', error);
@@ -113,148 +133,67 @@
         }
 
         // Thêm dự án mới
-        async function addProject() {
-            const projectName = document.getElementById('projectName').value.trim();
-            if (!projectName) {
+        function addProject() {
+            const name = document.getElementById('projectName').value.trim();
+            if (!name) {
                 alert('Vui lòng nhập tên dự án');
                 return;
             }
 
-            try {
-                const response = await fetch('/quanlybaiviet/add_project', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ name: projectName })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Lỗi khi thêm dự án');
+            fetch('/add_project', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('projectName').value = '';
+                    loadProjects();
+                    document.getElementById('projectSelect').value = name;
+                } else {
+                    alert(data.error || 'Không thể thêm dự án');
                 }
-
-                const newProject = await response.json();
-                const projectSelect = document.getElementById('projectSelect');
-                const option = document.createElement('option');
-                option.value = newProject.id;
-                option.textContent = newProject.name;
-                projectSelect.appendChild(option);
-                
-                // Tự động chọn dự án mới thêm
-                projectSelect.value = newProject.id;
-                
-                // Xóa tên dự án trong input
-                document.getElementById('projectName').value = '';
-                
-                // Load lại danh sách bài viết
-                loadPosts(newProject.id);
-            } catch (error) {
-                alert(error.message);
-            }
+            })
+            .catch(error => {
+                console.error('Lỗi:', error);
+                alert('Không thể thêm dự án');
+            });
         }
 
-        // Xóa dự án
-        async function deleteProject() {
-            const projectId = document.getElementById('projectSelect').value;
-            if (!projectId) {
-                alert('Vui lòng chọn dự án cần xóa');
-                return;
-            }
-
-            if (!confirm('Bạn có chắc chắn muốn xóa dự án này?')) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/quanlybaiviet/delete_project/${projectId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Lỗi khi xóa dự án');
-                }
-
-                // Xóa dự án khỏi select box
-                const projectSelect = document.getElementById('projectSelect');
-                const option = projectSelect.querySelector(`option[value="${projectId}"]`);
-                option.remove();
-
-                // Reset form
-                document.getElementById('addPostForm').style.display = 'none';
-                document.getElementById('postList').innerHTML = '';
-                document.getElementById('deleteProjectBtn').disabled = true;
-
-                // Chọn dự án đầu tiên nếu còn
-                if (projectSelect.options.length > 1) {
-                    projectSelect.value = projectSelect.options[1].value;
-                    selectProject(projectSelect.value);
-                }
-            } catch (error) {
-                alert(error.message);
-            }
-        }
-
-        // Xóa tất cả dữ liệu
-        async function deleteAll() {
-            if (!confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu? Hành động này không thể hoàn tác.')) {
-                return;
-            }
-
-            try {
-                const response = await fetch('/quanlybaiviet/delete_all', {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Lỗi khi xóa tất cả dữ liệu');
-                }
-
-                // Reset giao diện
-                const projectSelect = document.getElementById('projectSelect');
-                projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
-                document.getElementById('addPostForm').style.display = 'none';
-                document.getElementById('postList').innerHTML = '';
-                document.getElementById('deleteProjectBtn').disabled = true;
-            } catch (error) {
-                alert(error.message);
-            }
-        }
-
-        // Chọn dự án
-        function selectProject(projectId) {
-            const deleteBtn = document.getElementById('deleteProjectBtn');
-            if (projectId) {
-                document.getElementById('addPostForm').style.display = 'block';
-                deleteBtn.disabled = false;
-                loadPosts(projectId);
-            } else {
-                document.getElementById('addPostForm').style.display = 'none';
-                document.getElementById('postList').innerHTML = '';
-                deleteBtn.disabled = true;
-            }
-        }
-
-        // Lấy danh sách bài viết của dự án
-        function loadPosts(projectId) {
-            fetch(`/quanlybaiviet/get_posts/${projectId}`)
+        // Load danh sách bài viết
+        function loadPosts() {
+            fetch('/get_posts')
                 .then(response => response.json())
                 .then(posts => {
-                    const postList = document.getElementById('postList');
-                    postList.innerHTML = '';
-                    posts.forEach(post => {
-                        const div = document.createElement('div');
-                        div.className = 'card post-card';
-                        div.innerHTML = `
-                            <div class="card-body">
-                                <h5 class="card-title">${post.title}</h5>
-                                <p class="card-text">${post.content}</p>
-                                <small class="text-muted">Tạo lúc: ${post.created_at}</small>
-                            </div>
+                    const tbody = document.getElementById('postsList');
+                    tbody.innerHTML = '';
+                    posts.forEach((post, index) => {
+                        const tr = document.createElement('tr');
+                        if (post.is_done) tr.classList.add('done');
+                        tr.innerHTML = `
+                            <td><input type="checkbox" class="post-checkbox" value="${post.link}"></td>
+                            <td>${index + 1}</td>
+                            <td>${post.platform}</td>
+                            <td>${post.post_type}</td>
+                            <td>${post.link}</td>
+                            <td>${post.project}</td>
+                            <td>${post.date}</td>
+                            <td>
+                                <button class="btn btn-sm ${post.is_done ? 'btn-success' : 'btn-secondary'}" 
+                                        onclick="toggleDone('${post.link}', ${!post.is_done})">
+                                    ${post.is_done ? 'Đã hoàn thành' : 'Chưa hoàn thành'}
+                                </button>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary copy-btn" onclick="copyLink('${post.link}')">
+                                    Copy link
+                                </button>
+                            </td>
                         `;
-                        postList.appendChild(div);
+                        tbody.appendChild(tr);
                     });
                 })
                 .catch(error => {
@@ -264,52 +203,155 @@
         }
 
         // Thêm bài viết mới
-        async function addPost() {
-            const projectId = document.getElementById('projectSelect').value;
-            if (!projectId) {
+        function addPost() {
+            const links = document.getElementById('linkInput').value.trim().split('\n').filter(link => link.trim());
+            const project = document.getElementById('projectSelect').value;
+
+            if (!links.length) {
+                alert('Vui lòng nhập ít nhất một link');
+                return;
+            }
+
+            if (!project) {
                 alert('Vui lòng chọn dự án');
                 return;
             }
 
-            const title = document.getElementById('postTitle').value.trim();
-            const content = document.getElementById('postContent').value.trim();
+            fetch('/add_post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    links,
+                    project_name: project
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('linkInput').value = '';
+                    loadPosts();
+                } else {
+                    alert(data.error || 'Không thể thêm bài viết');
+                }
+            })
+            .catch(error => {
+                console.error('Lỗi:', error);
+                alert('Không thể thêm bài viết');
+            });
+        }
 
-            if (!title || !content) {
-                alert('Vui lòng nhập đầy đủ thông tin bài viết');
+        // Copy link
+        function copyLink(link) {
+            navigator.clipboard.writeText(link).then(() => {
+                alert('Link đã được sao chép vào clipboard');
+            }).catch(err => {
+                console.error('Lỗi khi copy link:', err);
+                alert('Không thể sao chép link');
+            });
+        }
+
+        // Đánh dấu bài viết đã hoàn thành
+        function toggleDone(link, isDone) {
+            fetch('/toggle_done', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ link, is_done: isDone })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadPosts();
+                } else {
+                    alert(data.error || 'Không thể cập nhật trạng thái');
+                }
+            })
+            .catch(error => {
+                console.error('Lỗi:', error);
+                alert('Không thể cập nhật trạng thái');
+            });
+        }
+
+        // Xóa bài viết đã chọn
+        function deleteSelected() {
+            const checkboxes = document.querySelectorAll('.post-checkbox:checked');
+            if (!checkboxes.length) {
+                alert('Vui lòng chọn ít nhất một bài viết để xóa');
                 return;
             }
 
-            try {
-                const response = await fetch('/quanlybaiviet/add_post', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        project_id: parseInt(projectId),
-                        title: title,
-                        content: content
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Lỗi khi thêm bài viết');
-                }
-
-                // Xóa form
-                document.getElementById('postTitle').value = '';
-                document.getElementById('postContent').value = '';
-
-                // Load lại danh sách bài viết
-                loadPosts(projectId);
-            } catch (error) {
-                alert(error.message);
+            if (!confirm('Bạn có chắc chắn muốn xóa các bài viết đã chọn?')) {
+                return;
             }
+
+            const links = Array.from(checkboxes).map(cb => cb.value);
+
+            fetch('/delete_posts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ links })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadPosts();
+                } else {
+                    alert(data.error || 'Không thể xóa bài viết');
+                }
+            })
+            .catch(error => {
+                console.error('Lỗi:', error);
+                alert('Không thể xóa bài viết');
+            });
         }
 
-        // Load danh sách dự án khi trang được tải
-        document.addEventListener('DOMContentLoaded', loadProjects);
+        // Xóa tất cả bài viết
+        function deleteAll() {
+            if (!confirm('Bạn có chắc chắn muốn xóa tất cả bài viết? Hành động này không thể hoàn tác.')) {
+                return;
+            }
+
+            fetch('/delete_all', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadPosts();
+                } else {
+                    alert(data.error || 'Không thể xóa tất cả bài viết');
+                }
+            })
+            .catch(error => {
+                console.error('Lỗi:', error);
+                alert('Không thể xóa tất cả bài viết');
+            });
+        }
+
+        // Sắp xếp theo nền tảng
+        function sortByPlatform() {
+            posts.sort((a, b) => {
+                return a.platform.localeCompare(b.platform) || new Date(b.date) - new Date(a.date);
+            });
+            displayPosts();
+        }
+
+        // Toggle select all
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const selected = document.querySelectorAll('.post-checkbox');
+            selected.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        // Load dữ liệu ban đầu
+        loadProjects();
     </script>
 </body>
-</html>
+</html> 
