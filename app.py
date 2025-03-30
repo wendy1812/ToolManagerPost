@@ -24,7 +24,7 @@ logging.basicConfig(
 MAX_ROWS = 50
 
 # Mật khẩu đơn giản
-PASSWORD = '123456'  # Thay đổi mật khẩu này
+PASSWORD = '958412'  # Thay đổi mật khẩu này
 
 def login_required(f):
     @wraps(f)
@@ -64,18 +64,22 @@ def save_data(data):
 def get_platform_from_url(url):
     """Xác định nền tảng từ URL"""
     url = url.lower()
-    if 'facebook.com' in url:
-        return 'Facebook'
-    elif 'instagram.com' in url:
-        return 'Instagram'
-    elif 'tiktok.com' in url:
-        return 'TikTok'
-    elif 'youtube.com' in url:
-        return 'YouTube'
-    elif 'x.com' in url or 'twitter.com' in url:
+    if 'x.com' in url or 'twitter.com' in url:
         return 'X'
-    elif 'linkedin.com' in url:
-        return 'LinkedIn'
+    elif 'coinmarketcap.com' in url:
+        return 'Coinmarketcap'
+    elif 'facebook.com' in url:
+        return 'Facebook'
+    elif 'quora.com' in url:
+        return 'Quora'
+    elif 'reddit.com' in url:
+        return 'Reddit'
+    elif 'tiktok.com' in url:
+        return 'Tiktok'
+    elif 'pumfund.com' in url:
+        return 'Pumfund'
+    elif 't.me' in url or 'telegram.org' in url:
+        return 'Tele'
     else:
         return 'Khác'
 
@@ -295,6 +299,27 @@ def delete_posts():
         return jsonify({'success': True})
     except Exception as e:
         logging.error(f'Lỗi xóa bài viết: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/sort_posts/<int:project_id>')
+@login_required
+def sort_posts(project_id):
+    """Sắp xếp bài viết theo nền tảng"""
+    try:
+        data = load_data()
+        project = next((p for p in data['projects'] if p['id'] == project_id), None)
+        if not project:
+            return jsonify({'error': 'Không tìm thấy dự án'}), 404
+            
+        # Sắp xếp bài viết theo nền tảng
+        project['posts'].sort(key=lambda x: x['platform'])
+        
+        # Lưu dữ liệu
+        save_data(data)
+        
+        return jsonify(project['posts'])
+    except Exception as e:
+        logging.error(f'Lỗi sắp xếp bài viết: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 # Khởi tạo dữ liệu mẫu nếu chưa có

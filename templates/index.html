@@ -122,6 +122,7 @@
                 .then(projects => {
                     const projectSelect = document.getElementById('projectSelect');
                     projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
+                    
                     projects.forEach(project => {
                         const option = document.createElement('option');
                         option.value = project.id;
@@ -129,11 +130,10 @@
                         projectSelect.appendChild(option);
                     });
 
-                    // Tự động chọn dự án mới nhất
+                    // Chọn dự án mới nhất
                     if (projects.length > 0) {
-                        const latestProject = projects[projects.length - 1];
-                        projectSelect.value = latestProject.id;
-                        selectProject(latestProject.id);
+                        projectSelect.value = projects[projects.length - 1].id;
+                        loadPosts(projects[projects.length - 1].id);
                     }
                 })
                 .catch(error => {
@@ -156,7 +156,9 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ name: projectName })
+                    body: JSON.stringify({
+                        name: projectName
+                    })
                 });
 
                 if (!response.ok) {
@@ -164,21 +166,11 @@
                     throw new Error(error.error || 'Lỗi khi thêm dự án');
                 }
 
-                const newProject = await response.json();
-                const projectSelect = document.getElementById('projectSelect');
-                const option = document.createElement('option');
-                option.value = newProject.id;
-                option.textContent = newProject.name;
-                projectSelect.appendChild(option);
-                
-                // Tự động chọn dự án mới thêm
-                projectSelect.value = newProject.id;
-                
-                // Xóa tên dự án trong input
+                // Xóa form
                 document.getElementById('projectName').value = '';
-                
-                // Load lại danh sách bài viết
-                loadPosts(newProject.id);
+
+                // Load lại danh sách dự án
+                loadProjects();
             } catch (error) {
                 alert(error.message);
             }
@@ -252,7 +244,7 @@
                     
                     posts.forEach((post, index) => {
                         const row = document.createElement('tr');
-                        row.className = post.is_done ? 'done-row' : '';
+                        row.className = post.is_done ? 'table-success' : '';
                         row.innerHTML = `
                             <td><input type="checkbox" class="post-checkbox" value="${post.link}"></td>
                             <td>${index + 1}</td>
@@ -260,17 +252,12 @@
                             <td>${post.platform}</td>
                             <td>${document.getElementById('projectSelect').options[document.getElementById('projectSelect').selectedIndex].text}</td>
                             <td>
-                                <a href="${post.link}" target="_blank">${post.link}</a>
-                                <button class="btn btn-sm btn-copy ms-2" onclick="copyToClipboard('${post.link}')">
-                                    Copy
-                                </button>
+                                <a href="${post.link}" target="_blank" onclick="copyToClipboard('${post.link}')">${post.link}</a>
                             </td>
                             <td>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" 
-                                           ${post.is_done ? 'checked' : ''} 
-                                           onchange="toggleDone('${post.link}', this.checked)">
-                                </div>
+                                <input type="checkbox" class="form-check-input" 
+                                       ${post.is_done ? 'checked' : ''} 
+                                       onchange="toggleDone('${post.link}', this.checked)">
                             </td>
                         `;
                         postsList.appendChild(row);
@@ -386,12 +373,45 @@
             });
         }
 
-        // Sắp xếp theo nền tảng
+        // Sắp xếp bài viết theo nền tảng
         function sortByPlatform() {
-            posts.sort((a, b) => {
-                return a.platform.localeCompare(b.platform) || new Date(b.date) - new Date(a.date);
-            });
-            displayPosts();
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                alert('Vui lòng chọn dự án');
+                return;
+            }
+
+            fetch(`/sort_posts/${projectId}`)
+                .then(response => response.json())
+                .then(posts => {
+                    const postsList = document.getElementById('postsList');
+                    postsList.innerHTML = '';
+                    
+                    posts.forEach((post, index) => {
+                        const row = document.createElement('tr');
+                        row.className = post.is_done ? 'table-success' : '';
+                        row.innerHTML = `
+                            <td><input type="checkbox" class="post-checkbox" value="${post.link}"></td>
+                            <td>${index + 1}</td>
+                            <td>${post.date}</td>
+                            <td>${post.platform}</td>
+                            <td>${document.getElementById('projectSelect').options[document.getElementById('projectSelect').selectedIndex].text}</td>
+                            <td>
+                                <a href="${post.link}" target="_blank" onclick="copyToClipboard('${post.link}')">${post.link}</a>
+                            </td>
+                            <td>
+                                <input type="checkbox" class="form-check-input" 
+                                       ${post.is_done ? 'checked' : ''} 
+                                       onchange="toggleDone('${post.link}', this.checked)">
+                            </td>
+                        `;
+                        postsList.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Lỗi:', error);
+                    alert('Không thể sắp xếp bài viết');
+                });
         }
 
         // Toggle select all
