@@ -120,11 +120,21 @@
             fetch('/get_projects')
                 .then(response => response.json())
                 .then(projects => {
-                    const select = document.getElementById('projectSelect');
-                    select.innerHTML = '<option value="">Chọn dự án</option>';
+                    const projectSelect = document.getElementById('projectSelect');
+                    projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
                     projects.forEach(project => {
-                        select.innerHTML += `<option value="${project}">${project}</option>`;
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = project.name;
+                        projectSelect.appendChild(option);
                     });
+
+                    // Tự động chọn dự án mới nhất
+                    if (projects.length > 0) {
+                        const latestProject = projects[projects.length - 1];
+                        projectSelect.value = latestProject.id;
+                        selectProject(latestProject.id);
+                    }
                 })
                 .catch(error => {
                     console.error('Lỗi:', error);
@@ -133,67 +143,134 @@
         }
 
         // Thêm dự án mới
-        function addProject() {
-            const name = document.getElementById('projectName').value.trim();
-            if (!name) {
+        async function addProject() {
+            const projectName = document.getElementById('projectName').value.trim();
+            if (!projectName) {
                 alert('Vui lòng nhập tên dự án');
                 return;
             }
 
-            fetch('/add_project', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ name })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('projectName').value = '';
-                    loadProjects();
-                    document.getElementById('projectSelect').value = name;
-                } else {
-                    alert(data.error || 'Không thể thêm dự án');
+            try {
+                const response = await fetch('/add_project', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: projectName })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi thêm dự án');
                 }
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-                alert('Không thể thêm dự án');
-            });
+
+                const newProject = await response.json();
+                const projectSelect = document.getElementById('projectSelect');
+                const option = document.createElement('option');
+                option.value = newProject.id;
+                option.textContent = newProject.name;
+                projectSelect.appendChild(option);
+                
+                // Tự động chọn dự án mới thêm
+                projectSelect.value = newProject.id;
+                
+                // Xóa tên dự án trong input
+                document.getElementById('projectName').value = '';
+                
+                // Load lại danh sách bài viết
+                loadPosts(newProject.id);
+            } catch (error) {
+                alert(error.message);
+            }
         }
 
-        // Load danh sách bài viết
-        function loadPosts() {
-            fetch('/get_posts')
+        // Xóa dự án
+        async function deleteProject() {
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                alert('Vui lòng chọn dự án cần xóa');
+                return;
+            }
+
+            if (!confirm('Bạn có chắc chắn muốn xóa dự án này?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/delete_project/${projectId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi xóa dự án');
+                }
+
+                // Xóa dự án khỏi select box
+                const projectSelect = document.getElementById('projectSelect');
+                const option = projectSelect.querySelector(`option[value="${projectId}"]`);
+                option.remove();
+
+                // Reset form
+                document.getElementById('addPostForm').style.display = 'none';
+                document.getElementById('postList').innerHTML = '';
+                document.getElementById('deleteProjectBtn').disabled = true;
+
+                // Chọn dự án đầu tiên nếu còn
+                if (projectSelect.options.length > 1) {
+                    projectSelect.value = projectSelect.options[1].value;
+                    selectProject(projectSelect.value);
+                }
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // Xóa tất cả dữ liệu
+        async function deleteAll() {
+            if (!confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu? Hành động này không thể hoàn tác.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/delete_all', {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi xóa tất cả dữ liệu');
+                }
+
+                // Reset giao diện
+                const projectSelect = document.getElementById('projectSelect');
+                projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
+                document.getElementById('addPostForm').style.display = 'none';
+                document.getElementById('postList').innerHTML = '';
+                document.getElementById('deleteProjectBtn').disabled = true;
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // Lấy danh sách bài viết của dự án
+        function loadPosts(projectId) {
+            fetch(`/get_posts/${projectId}`)
                 .then(response => response.json())
                 .then(posts => {
-                    const tbody = document.getElementById('postsList');
-                    tbody.innerHTML = '';
-                    posts.forEach((post, index) => {
-                        const tr = document.createElement('tr');
-                        if (post.is_done) tr.classList.add('done');
-                        tr.innerHTML = `
-                            <td><input type="checkbox" class="post-checkbox" value="${post.link}"></td>
-                            <td>${index + 1}</td>
-                            <td>${post.platform}</td>
-                            <td>${post.post_type}</td>
-                            <td>${post.link}</td>
-                            <td>${post.project}</td>
-                            <td>${post.date}</td>
-                            <td>
-                                <button class="btn btn-sm ${post.is_done ? 'btn-success' : 'btn-secondary'}" 
-                                        onclick="toggleDone('${post.link}', ${!post.is_done})">
-                                    ${post.is_done ? 'Đã hoàn thành' : 'Chưa hoàn thành'}
-                                </button>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-primary copy-btn" onclick="copyLink('${post.link}')">
-                                    Copy link
-                                </button>
-                            </td>
+                    const postList = document.getElementById('postList');
+                    postList.innerHTML = '';
+                    posts.forEach(post => {
+                        const div = document.createElement('div');
+                        div.className = 'card post-card';
+                        div.innerHTML = `
+                            <div class="card-body">
+                                <h5 class="card-title">${post.title}</h5>
+                                <p class="card-text">${post.content}</p>
+                                <small class="text-muted">Tạo lúc: ${post.created_at}</small>
+                            </div>
                         `;
-                        tbody.appendChild(tr);
+                        postList.appendChild(div);
                     });
                 })
                 .catch(error => {
@@ -203,53 +280,48 @@
         }
 
         // Thêm bài viết mới
-        function addPost() {
-            const links = document.getElementById('linkInput').value.trim().split('\n').filter(link => link.trim());
-            const project = document.getElementById('projectSelect').value;
-
-            if (!links.length) {
-                alert('Vui lòng nhập ít nhất một link');
-                return;
-            }
-
-            if (!project) {
+        async function addPost() {
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
                 alert('Vui lòng chọn dự án');
                 return;
             }
 
-            fetch('/add_post', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    links,
-                    project_name: project
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('linkInput').value = '';
-                    loadPosts();
-                } else {
-                    alert(data.error || 'Không thể thêm bài viết');
-                }
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-                alert('Không thể thêm bài viết');
-            });
-        }
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
 
-        // Copy link
-        function copyLink(link) {
-            navigator.clipboard.writeText(link).then(() => {
-                alert('Link đã được sao chép vào clipboard');
-            }).catch(err => {
-                console.error('Lỗi khi copy link:', err);
-                alert('Không thể sao chép link');
-            });
+            if (!title || !content) {
+                alert('Vui lòng nhập đầy đủ thông tin bài viết');
+                return;
+            }
+
+            try {
+                const response = await fetch('/add_post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: parseInt(projectId),
+                        title: title,
+                        content: content
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi thêm bài viết');
+                }
+
+                // Xóa form
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postContent').value = '';
+
+                // Load lại danh sách bài viết
+                loadPosts(projectId);
+            } catch (error) {
+                alert(error.message);
+            }
         }
 
         // Đánh dấu bài viết đã hoàn thành
@@ -307,29 +379,6 @@
             .catch(error => {
                 console.error('Lỗi:', error);
                 alert('Không thể xóa bài viết');
-            });
-        }
-
-        // Xóa tất cả bài viết
-        function deleteAll() {
-            if (!confirm('Bạn có chắc chắn muốn xóa tất cả bài viết? Hành động này không thể hoàn tác.')) {
-                return;
-            }
-
-            fetch('/delete_all', {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    loadPosts();
-                } else {
-                    alert(data.error || 'Không thể xóa tất cả bài viết');
-                }
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-                alert('Không thể xóa tất cả bài viết');
             });
         }
 

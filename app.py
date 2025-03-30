@@ -7,9 +7,6 @@ import logging
 # Khởi tạo Flask app
 app = Flask(__name__)
 
-# Cấu hình cho môi trường production
-app.config['APPLICATION_ROOT'] = '/quanlybaiviet'
-
 # Đảm bảo đường dẫn tuyệt đối
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(CURRENT_DIR, 'data.json')
@@ -42,12 +39,12 @@ def save_data(data):
         logging.error(f'Lỗi lưu file dữ liệu: {str(e)}')
         raise
 
-@app.route('/quanlybaiviet/')
+@app.route('/')
 def index():
     """Trang chủ"""
     return render_template('index.html')
 
-@app.route('/quanlybaiviet/get_projects')
+@app.route('/get_projects')
 def get_projects():
     """Lấy danh sách dự án"""
     try:
@@ -57,7 +54,7 @@ def get_projects():
         logging.error(f'Lỗi lấy danh sách dự án: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/quanlybaiviet/add_project', methods=['POST'])
+@app.route('/add_project', methods=['POST'])
 def add_project():
     """Thêm dự án mới"""
     try:
@@ -93,7 +90,7 @@ def add_project():
         logging.error(f'Lỗi thêm dự án: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/quanlybaiviet/get_posts/<int:project_id>')
+@app.route('/get_posts/<int:project_id>')
 def get_posts(project_id):
     """Lấy danh sách bài viết của dự án"""
     try:
@@ -106,7 +103,7 @@ def get_posts(project_id):
         logging.error(f'Lỗi lấy danh sách bài viết: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/quanlybaiviet/add_post', methods=['POST'])
+@app.route('/add_post', methods=['POST'])
 def add_post():
     """Thêm bài viết mới"""
     try:
@@ -139,7 +136,7 @@ def add_post():
         logging.error(f'Lỗi thêm bài viết: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/quanlybaiviet/delete_project/<int:project_id>', methods=['DELETE'])
+@app.route('/delete_project/<int:project_id>', methods=['DELETE'])
 def delete_project(project_id):
     """Xóa dự án"""
     try:
@@ -162,7 +159,7 @@ def delete_project(project_id):
         logging.error(f'Lỗi xóa dự án: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/quanlybaiviet/delete_all', methods=['DELETE'])
+@app.route('/delete_all', methods=['DELETE'])
 def delete_all():
     """Xóa tất cả dữ liệu"""
     try:
