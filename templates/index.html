@@ -23,6 +23,12 @@
             background-color: #198754;
             color: white;
         }
+        .link-column {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -66,11 +72,9 @@
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <label class="form-label">Link bài viết:</label>
                     <textarea id="linkInput" class="form-control" rows="3" placeholder="Nhập link bài viết"></textarea>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Dự án:</label>
                     <select id="projectSelect" class="form-select" onchange="loadPosts()">
                         <option value="">Chọn dự án</option>
                     </select>
@@ -99,7 +103,7 @@
                                 <th>Ngày</th>
                                 <th>Nền tảng</th>
                                 <th>Dự án</th>
-                                <th>Link</th>
+                                <th class="link-column">Link</th>
                                 <th>Hoàn thành</th>
                             </tr>
                         </thead>
@@ -121,6 +125,7 @@
                 .then(response => response.json())
                 .then(projects => {
                     const projectSelect = document.getElementById('projectSelect');
+                    const currentValue = projectSelect.value; // Lưu giá trị hiện tại
                     projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
                     
                     projects.forEach(project => {
@@ -130,8 +135,11 @@
                         projectSelect.appendChild(option);
                     });
 
-                    // Chọn dự án mới nhất
-                    if (projects.length > 0) {
+                    // Khôi phục giá trị đã chọn
+                    if (currentValue) {
+                        projectSelect.value = currentValue;
+                        loadPosts(currentValue);
+                    } else if (projects.length > 0) {
                         projectSelect.value = projects[projects.length - 1].id;
                         loadPosts(projects[projects.length - 1].id);
                     }
@@ -251,7 +259,7 @@
                             <td>${post.date}</td>
                             <td>${post.platform}</td>
                             <td>${document.getElementById('projectSelect').options[document.getElementById('projectSelect').selectedIndex].text}</td>
-                            <td>
+                            <td class="link-column">
                                 <a href="${post.link}" target="_blank" onclick="copyToClipboard('${post.link}')">${post.link}</a>
                             </td>
                             <td>
@@ -396,7 +404,7 @@
                             <td>${post.date}</td>
                             <td>${post.platform}</td>
                             <td>${document.getElementById('projectSelect').options[document.getElementById('projectSelect').selectedIndex].text}</td>
-                            <td>
+                            <td class="link-column">
                                 <a href="${post.link}" target="_blank" onclick="copyToClipboard('${post.link}')">${post.link}</a>
                             </td>
                             <td>

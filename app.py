@@ -24,7 +24,7 @@ logging.basicConfig(
 MAX_ROWS = 50
 
 # Mật khẩu đơn giản
-PASSWORD = '958412'  # Thay đổi mật khẩu này
+PASSWORD = '9998'  # Thay đổi mật khẩu này
 
 def login_required(f):
     @wraps(f)
