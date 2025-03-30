@@ -1,8 +1,315 @@
-<html>
+<!DOCTYPE html>
+<html lang="vi">
 <head>
-<title>Tool Manager Post</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý bài viết</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .project-card {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .post-card {
+            margin-bottom: 1rem;
+        }
+        .project-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+        .danger-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+            justify-content: flex-end;
+        }
+    </style>
 </head>
 <body>
-<h1>Tool Manager Post</h1>
+    <div class="container mt-4">
+        <h1 class="mb-4">Quản lý bài viết</h1>
+        
+        <!-- Form thêm dự án -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Thêm dự án mới</h5>
+                <div class="input-group">
+                    <input type="text" id="projectName" class="form-control" placeholder="Nhập tên dự án">
+                    <button class="btn btn-primary" onclick="addProject()">Thêm dự án</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách dự án và bài viết -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <h5>Chọn dự án</h5>
+                <div class="project-actions">
+                    <select id="projectSelect" class="form-select" onchange="selectProject(this.value)">
+                        <option value="">Chọn dự án...</option>
+                    </select>
+                    <button class="btn btn-danger" onclick="deleteProject()" id="deleteProjectBtn" disabled>Xóa dự án</button>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <h5>Danh sách bài viết</h5>
+                <div id="postList">
+                    <!-- Bài viết sẽ được thêm vào đây -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Form thêm bài viết -->
+        <div class="card" id="addPostForm" style="display: none;">
+            <div class="card-body">
+                <h5 class="card-title">Thêm bài viết mới</h5>
+                <div class="mb-3">
+                    <input type="text" id="postTitle" class="form-control" placeholder="Tiêu đề bài viết">
+                </div>
+                <div class="mb-3">
+                    <textarea id="postContent" class="form-control" rows="5" placeholder="Nội dung bài viết"></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="addPost()">Thêm bài viết</button>
+            </div>
+        </div>
+
+        <!-- Nút xóa tất cả -->
+        <div class="danger-actions">
+            <button class="btn btn-danger" onclick="deleteAll()">Xóa tất cả dữ liệu</button>
+        </div>
+    </div>
+
+    <script>
+        // Lấy danh sách dự án
+        function loadProjects() {
+            fetch('/quanlybaiviet/get_projects')
+                .then(response => response.json())
+                .then(projects => {
+                    const projectSelect = document.getElementById('projectSelect');
+                    projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
+                    projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = project.name;
+                        projectSelect.appendChild(option);
+                    });
+
+                    // Tự động chọn dự án mới nhất
+                    if (projects.length > 0) {
+                        const latestProject = projects[projects.length - 1];
+                        projectSelect.value = latestProject.id;
+                        selectProject(latestProject.id);
+                    }
+                })
+                .catch(error => {
+                    console.error('Lỗi:', error);
+                    alert('Không thể tải danh sách dự án');
+                });
+        }
+
+        // Thêm dự án mới
+        async function addProject() {
+            const projectName = document.getElementById('projectName').value.trim();
+            if (!projectName) {
+                alert('Vui lòng nhập tên dự án');
+                return;
+            }
+
+            try {
+                const response = await fetch('/quanlybaiviet/add_project', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: projectName })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi thêm dự án');
+                }
+
+                const newProject = await response.json();
+                const projectSelect = document.getElementById('projectSelect');
+                const option = document.createElement('option');
+                option.value = newProject.id;
+                option.textContent = newProject.name;
+                projectSelect.appendChild(option);
+                
+                // Tự động chọn dự án mới thêm
+                projectSelect.value = newProject.id;
+                
+                // Xóa tên dự án trong input
+                document.getElementById('projectName').value = '';
+                
+                // Load lại danh sách bài viết
+                loadPosts(newProject.id);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // Xóa dự án
+        async function deleteProject() {
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                alert('Vui lòng chọn dự án cần xóa');
+                return;
+            }
+
+            if (!confirm('Bạn có chắc chắn muốn xóa dự án này?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/quanlybaiviet/delete_project/${projectId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi xóa dự án');
+                }
+
+                // Xóa dự án khỏi select box
+                const projectSelect = document.getElementById('projectSelect');
+                const option = projectSelect.querySelector(`option[value="${projectId}"]`);
+                option.remove();
+
+                // Reset form
+                document.getElementById('addPostForm').style.display = 'none';
+                document.getElementById('postList').innerHTML = '';
+                document.getElementById('deleteProjectBtn').disabled = true;
+
+                // Chọn dự án đầu tiên nếu còn
+                if (projectSelect.options.length > 1) {
+                    projectSelect.value = projectSelect.options[1].value;
+                    selectProject(projectSelect.value);
+                }
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // Xóa tất cả dữ liệu
+        async function deleteAll() {
+            if (!confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu? Hành động này không thể hoàn tác.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/quanlybaiviet/delete_all', {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi xóa tất cả dữ liệu');
+                }
+
+                // Reset giao diện
+                const projectSelect = document.getElementById('projectSelect');
+                projectSelect.innerHTML = '<option value="">Chọn dự án...</option>';
+                document.getElementById('addPostForm').style.display = 'none';
+                document.getElementById('postList').innerHTML = '';
+                document.getElementById('deleteProjectBtn').disabled = true;
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // Chọn dự án
+        function selectProject(projectId) {
+            const deleteBtn = document.getElementById('deleteProjectBtn');
+            if (projectId) {
+                document.getElementById('addPostForm').style.display = 'block';
+                deleteBtn.disabled = false;
+                loadPosts(projectId);
+            } else {
+                document.getElementById('addPostForm').style.display = 'none';
+                document.getElementById('postList').innerHTML = '';
+                deleteBtn.disabled = true;
+            }
+        }
+
+        // Lấy danh sách bài viết của dự án
+        function loadPosts(projectId) {
+            fetch(`/quanlybaiviet/get_posts/${projectId}`)
+                .then(response => response.json())
+                .then(posts => {
+                    const postList = document.getElementById('postList');
+                    postList.innerHTML = '';
+                    posts.forEach(post => {
+                        const div = document.createElement('div');
+                        div.className = 'card post-card';
+                        div.innerHTML = `
+                            <div class="card-body">
+                                <h5 class="card-title">${post.title}</h5>
+                                <p class="card-text">${post.content}</p>
+                                <small class="text-muted">Tạo lúc: ${post.created_at}</small>
+                            </div>
+                        `;
+                        postList.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Lỗi:', error);
+                    alert('Không thể tải danh sách bài viết');
+                });
+        }
+
+        // Thêm bài viết mới
+        async function addPost() {
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                alert('Vui lòng chọn dự án');
+                return;
+            }
+
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+
+            if (!title || !content) {
+                alert('Vui lòng nhập đầy đủ thông tin bài viết');
+                return;
+            }
+
+            try {
+                const response = await fetch('/quanlybaiviet/add_post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: parseInt(projectId),
+                        title: title,
+                        content: content
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Lỗi khi thêm bài viết');
+                }
+
+                // Xóa form
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postContent').value = '';
+
+                // Load lại danh sách bài viết
+                loadPosts(projectId);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // Load danh sách dự án khi trang được tải
+        document.addEventListener('DOMContentLoaded', loadProjects);
+    </script>
 </body>
 </html>
