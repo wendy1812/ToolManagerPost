@@ -173,7 +173,8 @@ def add_post():
         if not projects:
             return jsonify({'error': 'Chưa có dự án nào'}), 400
             
-        latest_project = projects[0]  # Dự án đầu tiên là mới nhất
+        # Lấy dự án mới nhất (dự án cuối cùng trong danh sách)
+        latest_project = projects[-1]
         
         # Thêm các bài viết vào dự án
         for link in links:
@@ -184,7 +185,7 @@ def add_post():
             post = {
                 'link': link,
                 'platform': platform,
-                'date': datetime.now().strftime('%d/%m'),
+                'date': datetime.now().strftime('%d/%m %H:%M'),
                 'is_done': False
             }
             latest_project['posts'].append(post)
@@ -263,18 +264,16 @@ def delete_posts():
         return jsonify({'error': 'Không thể xóa bài viết'}), 500
 
 @app.route('/sort_posts')
-@login_required
 def sort_posts():
-    """Sắp xếp tất cả bài viết theo nền tảng"""
     try:
-        data = load_data()
+        projects = load_data()
         all_posts = []
-        for project in data:
+        for project in projects:
             for post in project['posts']:
                 post['project_name'] = project['name']
                 all_posts.append(post)
         
-        # Sắp xếp bài viết theo nền tảng
+        # Sắp xếp theo nền tảng
         all_posts.sort(key=lambda x: x['platform'])
         
         return jsonify(all_posts)

@@ -122,10 +122,10 @@
                                     <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
                                 </th>
                                 <th style="width: 40px">Done</th>
-                                <th style="width: 100px">Date</th>
                                 <th style="width: 120px">SNS</th>
                                 <th style="width: 150px">Dự án</th>
                                 <th class="link-column">Link</th>
+                                <th style="width: 100px">Date</th>
                             </tr>
                         </thead>
                         <tbody id="postList"></tbody>
@@ -304,7 +304,6 @@
                                    ${post.is_done ? 'checked' : ''} 
                                    onchange="toggleDone('${post.link}', this.checked)">
                         </td>
-                        <td>${post.date}</td>
                         <td>${post.platform}</td>
                         <td>${post.project_name}</td>
                         <td class="link-column">
@@ -312,6 +311,7 @@
                                 ${post.link}
                             </a>
                         </td>
+                        <td>${post.date}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -439,7 +439,6 @@
                                        ${post.is_done ? 'checked' : ''} 
                                        onchange="toggleDone('${post.link}', this.checked)">
                             </td>
-                            <td>${post.date}</td>
                             <td>${post.platform}</td>
                             <td>${post.project_name}</td>
                             <td class="link-column">
@@ -447,6 +446,7 @@
                                     ${post.link}
                                 </a>
                             </td>
+                            <td>${post.date}</td>
                         `;
                         postsList.appendChild(tr);
                     });
